@@ -1,41 +1,99 @@
-// create map
-const myMap = L.map('map', {
-	center: [48.868672, 2.342130],
-	zoom: 12,
-});
+// set empty global variables latitude and longitute
+let lat;
+let lon;
 
-// add openstreetmap tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+//set map
+const myMap = L.map('map');
+
+//async function to get user location, businesses, and business type in one map
+async function userCoord(){
+    const location = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+    })
+    
+    //consoling the user location details and coordinates
+    console.log(location);
+    console.log([location.coords.latitude, location.coords.longitude]);
+    
+    //get user lat and lon coords
+    lat = location.coords.latitude
+    lon = location.coords.longitude
+        //creates map based on user coords
+    myMap.setView([lat, lon],15);
+    
+    //creates user coords marker
+    const marker = L.marker([lat, lon])
+    marker.addTo(myMap).bindPopup('<p1><b>You are Here!</b></p1>').openPopup()
+    
+    //addes map layer to show user coords
+    const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    minZoom: '15',
-}).addTo(myMap)
+    minZoom: '5',
+}).addTo(myMap);
 
-// create and main add geolocation marker
-const marker = L.marker([48.87007, 2.346453])
-marker.addTo(myMap).bindPopup('<p1><b>The Hoxton, Paris</b></p1>').openPopup()
+    //function for fetching foursquare apis for each business type
+    async function getBusiness(business, lat, lon){
+        lat = location.coords.latitude
+        lon = location.coords.longitude
+        
+        const options = {
+            method: 'GET',
+            headers: {
+            Accept: 'application/json',
+            Authorization: 'fsq35zIGhjUIlGNUtuahxQDMjlSdAq+0+u3/Izm005mKnTE='
+            }
+        };
 
-// draw the 2nd arrondissement
-const latlngs = [[48.863368120198004, 2.3509079846928516],[48.86933262048345, 2.3542531602919805],[48.87199261164275, 2.3400569901592183],[48.86993336274516, 2.3280142476578813], [48.86834104280146, 2.330308418109664]]
-
-const polygon = L.polygon(latlngs, {
-    color: 'blue', 
-    fillOpacity: 0.0
-}).addTo(myMap)
-
-// create red pin marker
-const redPin = L.icon({
-    iconUrl: './assets/red-pin.png',
-    iconSize:     [38, 38], // size of the icon
-    iconAnchor:   [19, 38], // point of the icon which will correspond to marker's location
-    popupAnchor:  [0, -38] // point from which the popup should open relative to the iconAnchor
-});
-
-// metro station markers
-const rS = L.marker([48.866200610611926, 2.352236247419453],{icon: redPin}).bindPopup('Réaumur-Sébastopol')
-const sSD = L.marker([48.869531786321566, 2.3528590208055196],{icon: redPin}).bindPopup('Strasbourg-Saint-Denis')
-const sentier = L.marker([48.8673721067762, 2.347107922912739],{icon: redPin}).bindPopup('Sentier')
-const bourse = L.marker([48.86868503971672, 2.3412285142058167],{icon: redPin}).bindPopup('Bourse')
-const qS = L.marker([48.869560129483226, 2.3358638645569543],{icon: redPin}).bindPopup('Quatre Septembre')
-const gB = L.marker([48.871282159004856, 2.3434818588892714],{icon: redPin}).bindPopup('Grands Boulevards')
-
-const stations = L.layerGroup([rS, sSD, sentier, bourse, qS, gB]).addTo(myMap);
+        //fetching data with dyanmic link based on business, lat, and lon
+        let response = await fetch(`https://api.foursquare.com/v3/places/search?query=${business}&ll=${lat}%2C${lon}&limit=10`, options)     
+        let data = await response.text();
+        let parsedData = JSON.parse(data);
+        let businesses = parsedData.results;
+        
+        //logs businesses in the area
+        console.log(businesses);
+        
+        //adding markers for each business
+        businesses.forEach(business => {
+            let businessLat = business.geocodes.main.latitude;
+            let businesslon = business.geocodes.main.longitude;
+            let businessName = business.name;
+            // console.log(element.geocodes.main)
+            let businessCoords = [businessLat, businesslon]
+            
+            const marker = L.marker(businessCoords)
+            marker.addTo(myMap).bindPopup(businessName).openPopup()
+        });
+    }
+    
+    //function to get business type when selected in dropdown menu and to call getBusiness function
+    function getSelection(){
+        let selection = document.querySelectorAll('#business-selections')
+        //cycles through each value in selection options
+        selection.forEach(element => {
+            let businessArray = ["coffee", "restaurant", "hotel", "market"]
+            //if coffee is selected in dropdown, calls getBusiness() for coffee
+            if(element.value === businessArray[0]){
+                getBusiness(businessArray[0])
+            }
+            //if restaurant is selected in dropdown, calls getBusiness() for coffee
+            if(element.value === businessArray[1]){
+                getBusiness(businessArray[1])
+            }
+            //if hotel is selected in dropdown, calls getBusiness() for coffee
+            if(element.value === businessArray[2]){
+                getBusiness(businessArray[2])
+            }
+            //if market is selected in dropdown, calls getBusiness() for coffee
+            if(element.value === businessArray[3]){
+                getBusiness(businessArray[3])
+            }
+            //logs which element is showing when selected in dropdown
+            console.log(element.value)
+        })
+    }
+    //calling selections for dropdown business selection
+    getSelection()
+};
+//calling all the functions and coords in userCoord function
+userCoord();
